@@ -4,4 +4,4 @@ go:
     - "1.10"
     - "1.11"
 
-script: go test -v ./...
+script: go test -v ./coap ./example-server
