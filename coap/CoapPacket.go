@@ -55,21 +55,40 @@ const (
 	c5xx = 5 << 5
 	c7xx = 7 << 5
 
-	CODE_201 = c2xx + 1
-	CODE_202 = c2xx + 2
-	CODE_203 = c2xx + 3 //0x43
-	CODE_204 = c2xx + 4
-	CODE_205 = c2xx + 5
+	//https://tools.ietf.org/html/rfc7252#section-12.1.2
+	CODE_201_CREATED = c2xx + 1
+	CODE_202_DELETED = c2xx + 2
+	CODE_203_VALID   = c2xx + 3 //0x43
+	CODE_204_CHANGED = c2xx + 4
+	CODE_205_CONTENT = c2xx + 5
 
-	CODE_400_BAD_REQUEST = c4xx + 0
-	CODE_404_NOT_FOUND   = c4xx + 4
+	CODE_400_BAD_REQUEST                = c4xx + 0
+	CODE_401_UNAUTHORIZED               = c4xx + 1
+	CODE_402_BAD_OPTION                 = c4xx + 2
+	CODE_403_FORBIDDEN                  = c4xx + 3
+	CODE_404_NOT_FOUND                  = c4xx + 4
+	CODE_405_METHOD_NOT_ALLOWED         = c4xx + 5
+	CODE_406_NOT_ACCEPTABLE             = c4xx + 6
+	CODE_412_PRECONDITION_FAILED        = c4xx + 12
+	CODE_413_REQUEST_ENTITY_TOO_LARGE   = c4xx + 13
+	CODE_415_UNSUPPORTED_CONTENT_FORMAT = c4xx + 15
+
+	CODE_500_INTERNAL_SERVER_ERROR  = c5xx + 0
+	CODE_501_NOT_IMPLEMENTED        = c5xx + 1
+	CODE_502_BAD_GATEWAY            = c5xx + 2
+	CODE_503_SERVICE_NOT_AVAILABLE  = c5xx + 3
+	CODE_504_GATEWAY_TIMEOUT        = c5xx + 4
+	CODE_505_PROXYING_NOT_SUPPORTED = c5xx + 5
 
 	CODE_701_CSM  = c7xx + 1
 	CODE_702_PING = c7xx + 2
 	CODE_703_PONG = c7xx + 3
 
-	CT_TEXT_PLAIN               = 0
-	CT_APPLICATION_OCTET_STREAM = 42
+	MT_TEXT_PLAIN               = 0
+	MT_APPLICATION_LINK_FORMAT  = 40
+	MT_APPLICATION_XML          = 41
+	MT_APPLICATION_OCTET_STREAM = 42
+	MT_APPLICATION_JSON         = 50
 )
 
 /*
@@ -176,44 +195,49 @@ func (p CoapPacket) Write(writer io.Writer) error {
 	optBytes := p.writeOptions()
 
 	msgLen := len(optBytes) + len(p.Payload)
-	fmt.Printf("len: %d", msgLen)
+
 	if len(p.Payload) > 0 {
 		msgLen += 1
 	}
 
 	//LEN | TKL
+	var err error
 	if msgLen < 13 {
-		_, err := writer.Write([]byte{byte(msgLen<<4) + byte(len(p.Token))})
-		if err != nil {
-			return err
-		}
+		firstByte := byte(msgLen<<4) + byte(len(p.Token))
+		_, err = writer.Write([]byte{firstByte})
 	} else if msgLen < 269 {
-		writer.Write([]byte{byte(13<<4) + byte(len(p.Token))})
-		writer.Write([]byte{byte(msgLen - 13)})
+		firstByte := byte(13<<4) + byte(len(p.Token))
+		_, err = writer.Write([]byte{firstByte, byte(msgLen - 13)})
 	} else if msgLen < 65805 {
-		writer.Write([]byte{byte(14<<4) + byte(len(p.Token))})
-		writer.Write([]byte{byte((msgLen - 269) >> 8)})
-		writer.Write([]byte{byte((msgLen - 269) & 0xFF)})
+		firstByte := byte(14<<4) + byte(len(p.Token))
+		_, err = writer.Write([]byte{firstByte, byte((msgLen - 269) >> 8), byte((msgLen - 269) & 0xFF)})
 	} else {
-		writer.Write([]byte{byte(15<<4) + byte(len(p.Token))})
-		writer.Write([]byte{byte((msgLen - 65805) >> 16)})
-		writer.Write([]byte{byte((msgLen - 65805) >> 8)})
-		writer.Write([]byte{byte((msgLen - 65805) & 0xFF)})
+		firstByte := byte(15<<4) + byte(len(p.Token))
+		_, err = writer.Write([]byte{firstByte, byte((msgLen - 65805) >> 16), byte((msgLen - 65805) >> 8), byte((msgLen - 65805) & 0xFF)})
+	}
+	if err != nil {
+		return err
 	}
 
-	//Code
+	//Code, token, options
 	writer.Write([]byte{p.Code})
 
 	//Token
 	writer.Write(p.Token)
 
 	//Options
-	writer.Write(optBytes)
+	_, err = writer.Write(optBytes)
+	if err != nil {
+		return err
+	}
 
 	//Payload
 	if len(p.Payload) > 0 {
 		writer.Write([]byte{0xFF})
-		writer.Write(p.Payload)
+		_, err = writer.Write(p.Payload)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

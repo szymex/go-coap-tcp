@@ -57,7 +57,7 @@ func Test_request(t *testing.T) {
 
 	server := NewCoapServer()
 	server.HandleFunc("/test", func(req *CoapPacket) *CoapPacket {
-		return NewCoapPacket(CODE_205, req.Token, []byte("test test"))
+		return NewCoapPacket(CODE_205_CONTENT, req.Token, []byte("test test"))
 	})
 
 	start(&server, ":25683")
@@ -69,8 +69,27 @@ func Test_request(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.Code != CODE_205 {
+	if resp.Code != CODE_205_CONTENT {
 		t.Fatalf("\nExpected: 2.05\n  Actual: %v", resp.StringCode())
+	}
+
+	client.Close()
+	server.Stop()
+}
+
+func Test_getHandlerShouldReturn405OnPost(t *testing.T) {
+
+	server := NewCoapServer()
+	server.HandleGet("/test", func(req *CoapPacket) *CoapPacket {
+		return NewCoapPacket(CODE_205_CONTENT, req.Token, []byte("test test"))
+	})
+
+	start(&server, ":5683")
+	client := connectClient(t, "127.0.0.1:5683")
+
+	resp, _ := client.Post("/test", "")
+	if resp.Code != CODE_405_METHOD_NOT_ALLOWED {
+		t.Fatalf("\nExpected: 4.05\n  Actual: %v", resp.StringCode())
 	}
 
 	client.Close()

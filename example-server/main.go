@@ -23,13 +23,13 @@ func main() {
 	server := coap.NewCoapServer()
 	server.HandleFunc("/time", func(req *coap.CoapPacket) *coap.CoapPacket {
 		t := time.Now().In(time.UTC)
-		return coap.NewCoapPacket(coap.CODE_205, req.Token, []byte(t.Format("2006-01-02 15:04:05 -0700 MST")))
+		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(t.Format("2006-01-02 15:04:05 -0700 MST")))
 	})
 
 	server.Handle("/my-ip", MyIpHandler{})
 
 	server.HandleFunc("/rfc8323", func(req *coap.CoapPacket) *coap.CoapPacket {
-		return coap.NewCoapPacket(coap.CODE_205, req.Token, []byte(rfc8323))
+		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(rfc8323))
 	})
 
 	panic(server.Start(":5683", nil))
@@ -41,5 +41,5 @@ type MyIpHandler struct {
 func (f MyIpHandler) Serve(addr net.Addr, req *coap.CoapPacket) *coap.CoapPacket {
 	ipAdr := addr.(*net.TCPAddr).IP
 
-	return coap.NewCoapPacket(coap.CODE_205, req.Token, []byte(ipAdr.String()))
+	return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(ipAdr.String()))
 }

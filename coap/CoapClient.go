@@ -89,8 +89,25 @@ func (client *CoapClient) Ping() error {
 }
 
 func (client *CoapClient) Get(uriPath string) (*CoapPacket, error) {
-	req := NewCoapPacket(GET, []byte{}, []byte{})
+	return client.Invoke(GET, uriPath, -1, []byte{})
+}
+
+func (client *CoapClient) Post(uriPath string, payload string) (*CoapPacket, error) {
+	return client.Invoke(POST, uriPath, MT_TEXT_PLAIN, []byte(payload))
+}
+
+func (client *CoapClient) Put(uriPath string, payload string) (*CoapPacket, error) {
+	return client.Invoke(PUT, uriPath, MT_TEXT_PLAIN, []byte(payload))
+}
+
+func (client *CoapClient) Delete(uriPath string) (*CoapPacket, error) {
+	return client.Invoke(DELETE, uriPath, -1, []byte{})
+}
+
+func (client *CoapClient) Invoke(method uint8, uriPath string, mediaType int16, payload []byte) (*CoapPacket, error) {
+	req := NewCoapPacket(method, []byte{}, payload)
 	req.UriPath = uriPath
+	req.ContentFormat = mediaType
 
 	err := req.Write(client.conn)
 	if err != nil {
@@ -99,9 +116,4 @@ func (client *CoapClient) Get(uriPath string) (*CoapPacket, error) {
 
 	//todo: verify token
 	return ReadCoap(client.conn)
-	//if err != nil {
-	//	return CoapPacket{}, err
-	//}
-	//
-	//return resp, nil
 }

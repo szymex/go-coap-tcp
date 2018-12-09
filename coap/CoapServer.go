@@ -85,8 +85,22 @@ func (f HandlerFunc) Serve(peerIP net.Addr, packet *CoapPacket) *CoapPacket {
 	return f(packet)
 }
 
+func (server *CoapServer) HandleGet(uriPath string, handler func(request *CoapPacket) *CoapPacket) {
+	server.handlers[uriPath] = HandlerGetFunc(handler)
+}
+
+type HandlerGetFunc func(request *CoapPacket) *CoapPacket
+
+func (f HandlerGetFunc) Serve(peerIP net.Addr, req *CoapPacket) *CoapPacket {
+	if req.Code == GET {
+		return f(req)
+	}
+	return NewCoapPacket(CODE_405_METHOD_NOT_ALLOWED, req.Token, []byte{})
+}
+
 func (server *CoapServer) handleConnection(c net.Conn) {
 	fmt.Printf("Connected %v\n", c.RemoteAddr())
+	defer c.Close()
 	reader := bufio.NewReader(c)
 	//clientCapabilities := Capabilities{1152, false}
 
@@ -97,7 +111,6 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 	err := coapCSM.Write(c)
 	if err != nil {
 		fmt.Printf("Disconecting %v - %s\n", c.RemoteAddr(), err)
-		c.Close()
 		return
 	}
 
@@ -105,13 +118,11 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 	clientCSM, err := ReadCoap(reader)
 	if err != nil {
 		fmt.Printf("Disconecting %v - %s\n", c.RemoteAddr(), err)
-		c.Close()
 		return
 	}
 
 	fmt.Printf("CoAP server received: %v\n", clientCSM)
 	if clientCSM.Code != CODE_701_CSM || clientCSM.CSM == nil {
-		c.Close()
 		return
 	}
 
@@ -119,33 +130,41 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 		req, err := ReadCoap(reader)
 		if err != nil {
 			fmt.Printf("Disconecting %v: %s\n", c.RemoteAddr(), err)
-			c.Close()
 			return
 		}
 
 		fmt.Printf("CoAP server received: %v\n", req)
 
-		//ping
-		if req.Code == CODE_702_PING {
-			NewCoapPacket(CODE_703_PONG, []byte{}, []byte{}).Write(c)
-			continue
+		resp, err := server.serveRequest(c.RemoteAddr(), req)
+
+		if resp != nil {
+			err = resp.Write(c)
 		}
-
-		//request
-		if req.Code > 0 && req.Code <= 4 {
-			handler, exists := server.handlers[req.UriPath]
-
-			var resp *CoapPacket
-			if exists {
-				resp = handler.Serve(c.RemoteAddr(), req)
-			} else {
-				resp = NewCoapPacket(CODE_404_NOT_FOUND, req.Token, []byte{})
-			}
-
-			resp.Write(c)
-			continue
+		if err != nil {
+			fmt.Printf("Disconecting %v - %s\n", c.RemoteAddr(), err)
+			return
 		}
-
 	}
-	c.Close()
+}
+
+func (server *CoapServer) serveRequest(addr net.Addr, req *CoapPacket) (*CoapPacket, error) {
+	//ping
+	if req.Code == CODE_702_PING {
+		return NewCoapPacket(CODE_703_PONG, req.Token, []byte{}), nil
+	}
+
+	//request
+	if req.Code > 0 && req.Code <= 4 {
+		handler, exists := server.handlers[req.UriPath]
+
+		var resp *CoapPacket
+		if exists {
+			resp = handler.Serve(addr, req)
+		} else {
+			resp = NewCoapPacket(CODE_404_NOT_FOUND, req.Token, []byte{})
+		}
+
+		return resp, nil
+	}
+	return nil, nil
 }
