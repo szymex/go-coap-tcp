@@ -5,7 +5,9 @@ go:
     - "1.11"
 
 script:
-  - go test -race -coverprofile=coverage.txt -covermode=atomic -v ./coap ./example-server
+  - go test -race -coverprofile=coverage.txt -covermode=atomic -v ./coap
+  - go build  -o bin/example-server ./example-server
+  - go build  -o bin/coap-cli ./coap-cli
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

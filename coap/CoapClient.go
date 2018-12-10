@@ -104,11 +104,15 @@ func (client *CoapClient) Delete(uriPath string) (*CoapPacket, error) {
 	return client.Invoke(DELETE, uriPath, -1, []byte{})
 }
 
-func (client *CoapClient) Invoke(method uint8, uriPath string, mediaType int16, payload []byte) (*CoapPacket, error) {
+func (client *CoapClient) Invoke(method uint8, uriPath string, contentFormat int16, payload []byte) (*CoapPacket, error) {
 	req := NewCoapPacket(method, []byte{}, payload)
 	req.UriPath = uriPath
-	req.ContentFormat = mediaType
+	req.ContentFormat = contentFormat
 
+	return client.InvokeCoap(req)
+}
+
+func (client *CoapClient) InvokeCoap(req *CoapPacket) (*CoapPacket, error) {
 	err := req.Write(client.conn)
 	if err != nil {
 		return nil, err
