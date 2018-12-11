@@ -36,6 +36,7 @@ func ConnectWithCSM(address string, csm *Capabilities) (*CoapClient, error) {
 	coapCSM.CSM = csm
 
 	err = coapCSM.Write(client.conn)
+	fmt.Printf("    Sent: %v\n", coapCSM)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -48,14 +49,13 @@ func ConnectWithCSM(address string, csm *Capabilities) (*CoapClient, error) {
 		return nil, errr
 	}
 
+	fmt.Printf("Received: %v\n", peerCoap)
 	if peerCoap.Code != CODE_701_CSM || peerCoap.CSM == nil {
-		fmt.Printf("CoAP received: %v\n", peerCoap)
 		conn.Close()
 		return nil, errors.New("expecting csm not received")
 	}
 
 	client.serverCsm = peerCoap.CSM
-	fmt.Printf("Received server CSM: max-msg-size: %v, block-support: %v\n", peerCoap.CSM.MaxMessageSize, peerCoap.CSM.BlockWiseTransfer)
 
 	return &client, nil
 }
@@ -113,7 +113,13 @@ func (client *CoapClient) Invoke(method uint8, uriPath string, mediaType int16, 
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("    Sent: %v\n", req)
 
 	//todo: verify token
-	return ReadCoap(client.conn)
+	resp, err := ReadCoap(client.conn)
+	if resp != nil {
+		fmt.Printf("Received: %v\n", resp)
+	}
+
+	return resp, err
 }

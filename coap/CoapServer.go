@@ -99,7 +99,7 @@ func (f HandlerGetFunc) Serve(peerIP net.Addr, req *CoapPacket) *CoapPacket {
 }
 
 func (server *CoapServer) handleConnection(c net.Conn) {
-	fmt.Printf("Connected %v\n", c.RemoteAddr())
+	fmt.Printf("%v Connected\n", c.RemoteAddr())
 	defer c.Close()
 	reader := bufio.NewReader(c)
 	//clientCapabilities := Capabilities{1152, false}
@@ -110,9 +110,10 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 
 	err := coapCSM.Write(c)
 	if err != nil {
-		fmt.Printf("Disconecting %v - %s\n", c.RemoteAddr(), err)
+		fmt.Printf("%v Disconecting: %s\n", c.RemoteAddr(), err)
 		return
 	}
+	fmt.Printf("%v Sent %v\n", c.RemoteAddr(), coapCSM)
 
 	//wait for client CSM
 	clientCSM, err := ReadCoap(reader)
@@ -121,7 +122,7 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 		return
 	}
 
-	fmt.Printf("CoAP server received: %v\n", clientCSM)
+	fmt.Printf("%v Received %v\n", c.RemoteAddr(), clientCSM)
 	if clientCSM.Code != CODE_701_CSM || clientCSM.CSM == nil {
 		return
 	}
@@ -129,11 +130,11 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 	for {
 		req, err := ReadCoap(reader)
 		if err != nil {
-			fmt.Printf("Disconecting %v: %s\n", c.RemoteAddr(), err)
+			fmt.Printf("%v Disconecting: %s\n", c.RemoteAddr(), err)
 			return
 		}
 
-		fmt.Printf("CoAP server received: %v\n", req)
+		fmt.Printf("%v Received %v\n", c.RemoteAddr(), req)
 
 		resp, err := server.serveRequest(c.RemoteAddr(), req)
 
@@ -141,9 +142,11 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 			err = resp.Write(c)
 		}
 		if err != nil {
-			fmt.Printf("Disconecting %v - %s\n", c.RemoteAddr(), err)
+			fmt.Printf("%v Disconecting: %s\n", c.RemoteAddr(), err)
 			return
 		}
+		fmt.Printf("%v Sent %v\n", c.RemoteAddr(), coapCSM)
+
 	}
 }
 

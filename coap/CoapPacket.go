@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -244,12 +245,36 @@ func (p CoapPacket) Write(writer io.Writer) error {
 }
 
 func (p *CoapPacket) String() string {
-	csmString := ""
+	coapTxt := strings.Builder{}
+	coapTxt.WriteString("[")
+	coapTxt.WriteString(p.StringCode())
+	if len(p.Token) > 0 {
+		coapTxt.WriteString(fmt.Sprintf(", token:%x", p.Token))
+	}
+	if p.UriPath != "" {
+		coapTxt.WriteString(", uri:")
+		coapTxt.WriteString(p.UriPath)
+	}
+	if p.ContentFormat >= 0 {
+		coapTxt.WriteString(", ct:")
+		coapTxt.WriteString(strconv.Itoa(int(p.ContentFormat)))
+	}
+	if len(p.Payload) > 0 {
+		coapTxt.WriteString(", max-age:")
+		coapTxt.WriteString(strconv.Itoa(int(p.MaxAge)))
+	}
 	if p.CSM != nil {
-		csmString = fmt.Sprintf("max-msg-size: %d, block: %t, ", p.CSM.MaxMessageSize, p.CSM.BlockWiseTransfer)
+		coapTxt.WriteString(fmt.Sprintf(", max-msg-size: %d, block: %t", p.CSM.MaxMessageSize, p.CSM.BlockWiseTransfer))
 	}
 
-	return fmt.Sprintf("[%s, token:%x, uri-path: %s, cont: %d, max-age: %d, %spayload: %x]", p.StringCode(), p.Token, p.UriPath, p.ContentFormat, p.MaxAge, csmString, p.Payload)
+	if len(p.Payload) > 0 {
+		coapTxt.WriteString(", payload-len:")
+		coapTxt.WriteString(strconv.Itoa(len(p.Payload)))
+	}
+
+	coapTxt.WriteString("]")
+
+	return coapTxt.String()
 }
 
 func (p *CoapPacket) StringCode() string {
