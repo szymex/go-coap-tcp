@@ -4,4 +4,8 @@ go:
     - "1.10"
     - "1.11"
 
-script: go test -v ./coap ./example-server
+script:
+  - go test -race -coverprofile=coverage.txt -covermode=atomic -v ./coap ./example-server
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

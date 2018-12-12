@@ -1,6 +1,7 @@
 # Go CoAP over TCP Library
 
 [![Build Status](https://api.travis-ci.org/szymex/go-coap-tcp.svg)](http://travis-ci.org/szymex/go-coap-tcp)
+[![codecov](https://codecov.io/gh/szymex/go-coap-tcp/branch/master/graph/badge.svg)](https://codecov.io/gh/szymex/go-coap-tcp)
 
 Implements [RFC-8323](https://tools.ietf.org/html/rfc8323) - CoAP over TCP:
   - server and client
