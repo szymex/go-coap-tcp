@@ -114,42 +114,37 @@ func ReadCoap(reader io.Reader) (*CoapPacket, error) {
 		return nil, err
 	}
 
-	var len byte = (bufSingle[0] & 0xF0) >> 4
-	var tklLen byte = bufSingle[0] & 0x0F
-
-	if len == 13 {
-		_, err := io.ReadFull(reader, bufSingle)
-		if err != nil {
-			return nil, err
-		}
-		len += bufSingle[0]
+	var tklLen = bufSingle[0] & 0x0F
+	len, err := readLen(reader, bufSingle[0])
+	if err != nil {
+		return nil, err
 	}
 
-	var totalCoapSize = len + tklLen + 1
+	var totalCoapSize = len + uint32(tklLen+1)
 	buf := make([]byte, totalCoapSize)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	var index uint8 = 0
+	var index uint32 = 0
 
 	coapPacket.Code = buf[index]
 	coapPacket.Token = buf[1:(tklLen + 1)]
-	index += tklLen + 1
+	index += uint32(tklLen + 1)
 
 	//parse options
 	var optNum uint8 = 0
 	for totalCoapSize > index && buf[index] != 0xFF {
 		optDelta := buf[index] >> 4
-		optLen := buf[index] & 0x0f
+		optLen := uint32(buf[index] & 0x0f)
 		if optDelta == 13 {
 			index++
 			optDelta += buf[index]
 		}
 		if optLen == 13 {
 			index++
-			optLen += buf[index]
+			optLen += uint32(buf[index])
 		}
 
 		optNum += optDelta
@@ -188,6 +183,29 @@ func ReadCoap(reader io.Reader) (*CoapPacket, error) {
 	}
 
 	return &coapPacket, nil
+}
+
+func readLen(reader io.Reader, hdrByte byte) (uint32, error) {
+	var len = uint32(hdrByte >> 4)
+
+	var buf []byte
+	if len == 13 {
+		buf = make([]byte, 1)
+	} else if len == 14 {
+		buf = make([]byte, 2)
+		len = 269
+	} else if len == 15 {
+		buf = make([]byte, 3)
+		len = 65805
+	}
+
+	_, err := io.ReadFull(reader, buf)
+	if err != nil {
+		return 0, err
+	}
+	len += readUint32(buf)
+
+	return len, nil
 }
 
 func (p CoapPacket) Write(writer io.Writer) error {

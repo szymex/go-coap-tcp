@@ -50,6 +50,18 @@ func TestReadCoap_withLargerPayload(t *testing.T) {
 
 }
 
+func TestCoapWithLargePayloads(t *testing.T) {
+
+	coap := NewCoapPacket(CODE_412_PRECONDITION_FAILED, []byte{12}, make([]byte, 260))
+	assert(t, coap, writeAndRead(coap, t))
+
+	coap2 := NewCoapPacket(CODE_415_UNSUPPORTED_CONTENT_FORMAT, []byte{10, 20}, make([]byte, 65800))
+	assert(t, coap2, writeAndRead(coap2, t))
+
+	coap3 := NewCoapPacket(CODE_504_GATEWAY_TIMEOUT, []byte{10, 20, 30}, make([]byte, 200000))
+	assert(t, coap3, writeAndRead(coap3, t))
+}
+
 func TestReadCoap_withUriPath(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x70, 0x43, 0xb4, 't', 'e', 's', 't', 0x01, '2'})
@@ -161,7 +173,7 @@ func assert(t *testing.T, expectedCoap *CoapPacket, actualCoap CoapPacket) {
 		expectedCoap.MaxAge == actualCoap.MaxAge &&
 		reflect.DeepEqual(expectedCoap.CSM, actualCoap.CSM)) {
 
-		t.Errorf("\nExpected: %#v \n  Actual: %#v", expectedCoap, actualCoap)
+		t.Errorf("\nExpected: %v \n  Actual: %s", expectedCoap, actualCoap.String())
 	}
 
 }
