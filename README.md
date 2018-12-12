@@ -11,6 +11,20 @@ Implements [RFC-8323](https://tools.ietf.org/html/rfc8323) - CoAP over TCP:
   - *[TODO] WebSocket support*
 
 
+## Example server
+
+Example server listens on default port (5683). It exposes resources:
+    
+    /time
+    /my-ip
+    /rfc8323
+    /tmp
+    /slow
+    
+### Build and run
+
+    make build
+    ./bin/example-server
 
 ## License
 

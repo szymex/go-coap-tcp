@@ -378,7 +378,7 @@ func (p *CoapPacket) writeOptionHeader(optWriter *bytes.Buffer, delta byte, data
 func (p *CoapPacket) writeOptionHeaderDynamicSize(optWriter *bytes.Buffer, delta byte, data []byte) {
 	minData := data
 
-	for minData[0] == 0 {
+	for minData[0] == 0 && len(minData) > 1 {
 		minData = minData[1:]
 	}
 

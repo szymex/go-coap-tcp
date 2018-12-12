@@ -14,14 +14,16 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"github.com/szymex/go-coap-tcp/coap"
+	"math/rand"
 	"net"
 	"time"
 )
 
 func main() {
 	server := coap.NewCoapServer()
-	server.HandleFunc("/time", func(req *coap.CoapPacket) *coap.CoapPacket {
+	server.HandleGet("/time", func(req *coap.CoapPacket) *coap.CoapPacket {
 		t := time.Now().In(time.UTC)
 		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(t.Format("2006-01-02 15:04:05 -0700 MST")))
 	})
@@ -30,6 +32,14 @@ func main() {
 
 	server.HandleFunc("/rfc8323", func(req *coap.CoapPacket) *coap.CoapPacket {
 		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(rfc8323))
+	})
+
+	server.Handle("/tmp", &ReadWriteResourceHandler{})
+
+	server.HandleGet("/slow", func(req *coap.CoapPacket) *coap.CoapPacket {
+		wait := time.Duration(rand.Intn(9)) + 1
+		time.Sleep(wait * time.Second)
+		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(fmt.Sprintf("Waited %d seconds", wait)))
 	})
 
 	panic(server.Start(":5683", nil))
@@ -42,4 +52,37 @@ func (f MyIpHandler) Serve(addr net.Addr, req *coap.CoapPacket) *coap.CoapPacket
 	ipAdr := addr.(*net.TCPAddr).IP
 
 	return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(ipAdr.String()))
+}
+
+type ReadWriteResourceHandler struct {
+	payload       []byte
+	contentFormat int16
+	maxAge        uint32
+}
+
+func (f *ReadWriteResourceHandler) Serve(addr net.Addr, req *coap.CoapPacket) *coap.CoapPacket {
+	resp := coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte{})
+
+	switch req.Code {
+	case coap.GET:
+		resp.Payload = f.payload
+		resp.ContentFormat = f.contentFormat
+		resp.MaxAge = f.maxAge
+
+	case coap.PUT | coap.POST:
+		f.maxAge = req.MaxAge
+		f.contentFormat = req.ContentFormat
+		f.payload = req.Payload
+		resp.Code = coap.CODE_204_CHANGED
+
+	case coap.DELETE:
+		f.maxAge = 60
+		f.contentFormat = -1
+		f.payload = []byte{}
+		resp.Code = coap.CODE_202_DELETED
+	default:
+		resp.Code = coap.CODE_500_INTERNAL_SERVER_ERROR
+	}
+
+	return resp
 }
