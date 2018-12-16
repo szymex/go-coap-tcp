@@ -57,7 +57,7 @@ func Test_request(t *testing.T) {
 
 	server := NewCoapServer()
 	server.HandleFunc("/test", func(req *CoapPacket) *CoapPacket {
-		return NewCoapPacket(CODE_205_CONTENT, req.Token, []byte("test test"))
+		return req.Response(CODE_205_CONTENT, -1, []byte("test test"))
 	})
 
 	start(&server, ":25683")
@@ -81,7 +81,7 @@ func Test_getHandlerShouldReturn405OnPost(t *testing.T) {
 
 	server := NewCoapServer()
 	server.HandleGet("/test", func(req *CoapPacket) *CoapPacket {
-		return NewCoapPacket(CODE_205_CONTENT, req.Token, []byte("test test"))
+		return req.Response(CODE_205_CONTENT, -1, []byte("test test"))
 	})
 
 	start(&server, ":5683")

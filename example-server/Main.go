@@ -25,13 +25,13 @@ func main() {
 	server := coap.NewCoapServer()
 	server.HandleGet("/time", func(req *coap.CoapPacket) *coap.CoapPacket {
 		t := time.Now().In(time.UTC)
-		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(t.Format("2006-01-02 15:04:05 -0700 MST")))
+		return req.ResponseText(coap.CODE_205_CONTENT, t.Format("2006-01-02 15:04:05 -0700 MST"))
 	})
 
 	server.Handle("/my-ip", MyIpHandler{})
 
 	server.HandleFunc("/rfc8323", func(req *coap.CoapPacket) *coap.CoapPacket {
-		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(rfc8323))
+		return req.ResponseText(coap.CODE_205_CONTENT, rfc8323)
 	})
 
 	server.Handle("/tmp", &ReadWriteResourceHandler{})
@@ -39,7 +39,7 @@ func main() {
 	server.HandleGet("/slow", func(req *coap.CoapPacket) *coap.CoapPacket {
 		wait := time.Duration(rand.Intn(9)) + 1
 		time.Sleep(wait * time.Second)
-		return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(fmt.Sprintf("Waited %d seconds", wait)))
+		return req.ResponseText(coap.CODE_205_CONTENT, fmt.Sprintf("Waited %d seconds", wait))
 	})
 
 	panic(server.Start(":5683", nil))
@@ -51,7 +51,7 @@ type MyIpHandler struct {
 func (f MyIpHandler) Serve(addr net.Addr, req *coap.CoapPacket) *coap.CoapPacket {
 	ipAdr := addr.(*net.TCPAddr).IP
 
-	return coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte(ipAdr.String()))
+	return req.ResponseText(coap.CODE_205_CONTENT, ipAdr.String())
 }
 
 type ReadWriteResourceHandler struct {
@@ -61,7 +61,7 @@ type ReadWriteResourceHandler struct {
 }
 
 func (f *ReadWriteResourceHandler) Serve(addr net.Addr, req *coap.CoapPacket) *coap.CoapPacket {
-	resp := coap.NewCoapPacket(coap.CODE_205_CONTENT, req.Token, []byte{})
+	resp := req.ResponseCode(coap.CODE_205_CONTENT)
 
 	switch req.Code {
 	case coap.GET:

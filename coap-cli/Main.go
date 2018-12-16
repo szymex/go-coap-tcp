@@ -40,7 +40,7 @@ func main() {
 	method := parseMethod(flag.Arg(0))
 	uri := parseUri(flag.Arg(1))
 
-	req := coap.NewCoapPacket(method, []byte{}, payload)
+	req := coap.NewCoapPacket(method, payload)
 	req.UriPath = uri.Path
 	req.ContentFormat = int16(*contentFormat)
 	req.MaxAge = uint32(*maxAge)

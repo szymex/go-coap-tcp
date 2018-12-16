@@ -16,7 +16,9 @@ package coap
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
+	"time"
 )
 
 func Connect(address string) (*CoapClient, error) {
@@ -29,10 +31,12 @@ func ConnectWithCSM(address string, csm *Capabilities) (*CoapClient, error) {
 		return nil, err
 	}
 
-	client := CoapClient{conn, nil}
+	timeRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	client := CoapClient{conn, nil, uint32(timeRand.Int31n(0xFFFF))}
 
 	//send capabilities
-	coapCSM := NewCoapPacket(CODE_701_CSM, []byte{}, []byte{})
+	coapCSM := NewCoapPacket(CODE_701_CSM, []byte{})
+	coapCSM.token = client.nextToken()
 	coapCSM.CSM = csm
 
 	err = coapCSM.Write(client.conn)
@@ -67,10 +71,12 @@ func (client *CoapClient) Close() error {
 type CoapClient struct {
 	conn      net.Conn
 	serverCsm *Capabilities
+	lastToken uint32
 }
 
 func (client *CoapClient) Ping() error {
-	coapPing := NewCoapPacket(CODE_702_PING, []byte{}, []byte{})
+	coapPing := NewCoapPacket(CODE_702_PING, []byte{})
+	coapPing.token = client.nextToken()
 
 	err := coapPing.Write(client.conn)
 	if err != nil {
@@ -105,7 +111,8 @@ func (client *CoapClient) Delete(uriPath string) (*CoapPacket, error) {
 }
 
 func (client *CoapClient) Invoke(method uint8, uriPath string, contentFormat int16, payload []byte) (*CoapPacket, error) {
-	req := NewCoapPacket(method, []byte{}, payload)
+	req := NewCoapPacket(method, payload)
+	req.token = client.nextToken()
 	req.UriPath = uriPath
 	req.ContentFormat = contentFormat
 
@@ -113,6 +120,7 @@ func (client *CoapClient) Invoke(method uint8, uriPath string, contentFormat int
 }
 
 func (client *CoapClient) InvokeCoap(req *CoapPacket) (*CoapPacket, error) {
+	req.token = client.nextToken()
 	err := req.Write(client.conn)
 	if err != nil {
 		return nil, err
@@ -126,4 +134,11 @@ func (client *CoapClient) InvokeCoap(req *CoapPacket) (*CoapPacket, error) {
 	}
 
 	return resp, err
+}
+
+func (client *CoapClient) nextToken() []byte {
+	token := client.lastToken + 1
+	client.lastToken++
+
+	return writeDynamicUint32(token)
 }

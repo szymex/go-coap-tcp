@@ -24,21 +24,23 @@ func TestReadCoap_simplest(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x00, 0x45})
 
-	assert(t, NewCoapPacket(CODE_205_CONTENT, []byte{}, []byte{}), coap)
+	assert(t, NewCoapPacket(CODE_205_CONTENT, []byte{}), coap)
 }
 
 func TestReadCoap_withToken(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x01, 0x43, 0x7f})
+	expected := NewCoapPacket(CODE_203_VALID, []byte{})
+	expected.token = []byte{0x7f}
 
-	assert(t, NewCoapPacket(CODE_203_VALID, []byte{0x7f}, []byte{}), coap)
+	assert(t, expected, coap)
 }
 
 func TestReadCoap_withPayload(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x30, 0x41, 0xFF, 0x01, 0x02})
 
-	assert(t, NewCoapPacket(CODE_201_CREATED, []byte{}, []byte{0x01, 0x02}), coap)
+	assert(t, NewCoapPacket(CODE_201_CREATED, []byte{0x01, 0x02}), coap)
 
 }
 
@@ -46,19 +48,19 @@ func TestReadCoap_withLargerPayload(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0xd0, 0x03, 0x41, 0xFF, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
 
-	assert(t, NewCoapPacket(CODE_201_CREATED, []byte{}, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}), coap)
+	assert(t, NewCoapPacket(CODE_201_CREATED, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}), coap)
 
 }
 
 func TestCoapWithLargePayloads(t *testing.T) {
 
-	coap := NewCoapPacket(CODE_412_PRECONDITION_FAILED, []byte{12}, make([]byte, 260))
+	coap := NewCoapPacket(CODE_412_PRECONDITION_FAILED, make([]byte, 260))
 	assert(t, coap, writeAndRead(coap, t))
 
-	coap2 := NewCoapPacket(CODE_415_UNSUPPORTED_CONTENT_FORMAT, []byte{10, 20}, make([]byte, 65800))
+	coap2 := NewCoapPacket(CODE_415_UNSUPPORTED_CONTENT_FORMAT, make([]byte, 65800))
 	assert(t, coap2, writeAndRead(coap2, t))
 
-	coap3 := NewCoapPacket(CODE_504_GATEWAY_TIMEOUT, []byte{10, 20, 30}, make([]byte, 200000))
+	coap3 := NewCoapPacket(CODE_504_GATEWAY_TIMEOUT, make([]byte, 200000))
 	assert(t, coap3, writeAndRead(coap3, t))
 }
 
@@ -66,7 +68,7 @@ func TestReadCoap_withUriPath(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x70, 0x43, 0xb4, 't', 'e', 's', 't', 0x01, '2'})
 
-	expectedPacket := NewCoapPacket(CODE_203_VALID, []byte{}, []byte{})
+	expectedPacket := NewCoapPacket(CODE_203_VALID, []byte{})
 	expectedPacket.UriPath = "/test/2"
 	assert(t, expectedPacket, coap)
 }
@@ -75,7 +77,7 @@ func TestReadCoap_withMaxAge(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x40, 0x43, 0xd2, 0x01, 0x01, 0xF0})
 
-	expectedPacket := NewCoapPacket(CODE_203_VALID, []byte{}, []byte{})
+	expectedPacket := NewCoapPacket(CODE_203_VALID, []byte{})
 	expectedPacket.MaxAge = 0x01F0
 	assert(t, expectedPacket, coap)
 }
@@ -84,14 +86,14 @@ func TestReadCoap_withContentFormat(t *testing.T) {
 
 	coap, _ := readCoap([]byte{0x20, 0x43, 0xc1, 42})
 
-	expectedPacket := NewCoapPacket(CODE_203_VALID, []byte{}, []byte{})
+	expectedPacket := NewCoapPacket(CODE_203_VALID, []byte{})
 	expectedPacket.ContentFormat = MT_APPLICATION_OCTET_STREAM
 	assert(t, expectedPacket, coap)
 }
 
 func TestWriteCoap_simplest(t *testing.T) {
 
-	coap := NewCoapPacket(CODE_205_CONTENT, []byte{}, []byte{})
+	coap := NewCoapPacket(CODE_205_CONTENT, []byte{})
 	w := new(bytes.Buffer)
 
 	if coap.Write(w) != nil {
@@ -106,7 +108,8 @@ func TestWriteCoap_simplest(t *testing.T) {
 
 func TestWriteCoap_token_and_payload(t *testing.T) {
 
-	coap := NewCoapPacket(CODE_205_CONTENT, []byte{0x01, 0x02}, []byte{0x10, 0x11, 0x12})
+	coap := NewCoapPacket(CODE_205_CONTENT, []byte{0x10, 0x11, 0x12})
+	coap.token = []byte{0x01, 0x02}
 	w := new(bytes.Buffer)
 
 	if coap.Write(w) != nil {
@@ -122,11 +125,12 @@ func TestWriteCoap_token_and_payload(t *testing.T) {
 func TestReadWriteCoap(t *testing.T) {
 
 	//simple
-	coap := NewCoapPacket(CODE_205_CONTENT, []byte{}, []byte{})
+	coap := NewCoapPacket(CODE_205_CONTENT, []byte{})
 	assert(t, coap, writeAndRead(coap, t))
 
 	//token and payload
-	coap2 := NewCoapPacket(CODE_205_CONTENT, []byte{0x01, 0x02}, []byte("test"))
+	coap2 := NewCoapPacket(CODE_205_CONTENT, []byte("test"))
+	coap2.token = []byte{0x01, 0x02}
 	assert(t, coap2, writeAndRead(coap2, t))
 
 	//all options
@@ -139,7 +143,7 @@ func TestReadWriteCoap(t *testing.T) {
 
 func TestCSM(t *testing.T) {
 
-	coap := NewCoapPacket(CODE_701_CSM, []byte{}, []byte{})
+	coap := NewCoapPacket(CODE_701_CSM, []byte{})
 	coap.CSM = &Capabilities{123, true}
 
 	assert(t, coap, writeAndRead(coap, t))
@@ -167,7 +171,7 @@ func readCoap(rawCoap []byte) (CoapPacket, error) {
 func assert(t *testing.T, expectedCoap *CoapPacket, actualCoap CoapPacket) {
 
 	if !(expectedCoap.Code == actualCoap.Code &&
-		bytes.Equal(expectedCoap.Token, actualCoap.Token) &&
+		bytes.Equal(expectedCoap.token, actualCoap.token) &&
 		bytes.Equal(expectedCoap.Payload, actualCoap.Payload) &&
 		expectedCoap.UriPath == actualCoap.UriPath &&
 		expectedCoap.MaxAge == actualCoap.MaxAge &&

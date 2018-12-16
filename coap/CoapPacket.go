@@ -25,7 +25,7 @@ import (
 
 type CoapPacket struct {
 	Code    uint8
-	Token   []byte
+	token   []byte
 	Payload []byte
 
 	//options
@@ -41,8 +41,8 @@ type Capabilities struct {
 	BlockWiseTransfer bool
 }
 
-func NewCoapPacket(code uint8, token []byte, payload []byte) *CoapPacket {
-	return &CoapPacket{code, token, payload, "", 60, -1, nil}
+func NewCoapPacket(code uint8, payload []byte) *CoapPacket {
+	return &CoapPacket{code, []byte{}, payload, "", 60, -1, nil}
 }
 
 const (
@@ -130,7 +130,7 @@ func ReadCoap(reader io.Reader) (*CoapPacket, error) {
 	var index uint32 = 0
 
 	coapPacket.Code = buf[index]
-	coapPacket.Token = buf[1:(tklLen + 1)]
+	coapPacket.token = buf[1:(tklLen + 1)]
 	index += uint32(tklLen + 1)
 
 	//parse options
@@ -222,16 +222,16 @@ func (p CoapPacket) Write(writer io.Writer) error {
 	//LEN | TKL
 	var err error
 	if msgLen < 13 {
-		firstByte := byte(msgLen<<4) + byte(len(p.Token))
+		firstByte := byte(msgLen<<4) + byte(len(p.token))
 		_, err = writer.Write([]byte{firstByte})
 	} else if msgLen < 269 {
-		firstByte := byte(13<<4) + byte(len(p.Token))
+		firstByte := byte(13<<4) + byte(len(p.token))
 		_, err = writer.Write([]byte{firstByte, byte(msgLen - 13)})
 	} else if msgLen < 65805 {
-		firstByte := byte(14<<4) + byte(len(p.Token))
+		firstByte := byte(14<<4) + byte(len(p.token))
 		_, err = writer.Write([]byte{firstByte, byte((msgLen - 269) >> 8), byte((msgLen - 269) & 0xFF)})
 	} else {
-		firstByte := byte(15<<4) + byte(len(p.Token))
+		firstByte := byte(15<<4) + byte(len(p.token))
 		_, err = writer.Write([]byte{firstByte, byte((msgLen - 65805) >> 16), byte((msgLen - 65805) >> 8), byte((msgLen - 65805) & 0xFF)})
 	}
 	if err != nil {
@@ -242,7 +242,7 @@ func (p CoapPacket) Write(writer io.Writer) error {
 	writer.Write([]byte{p.Code})
 
 	//Token
-	writer.Write(p.Token)
+	writer.Write(p.token)
 
 	//Options
 	_, err = writer.Write(optBytes)
@@ -262,12 +262,30 @@ func (p CoapPacket) Write(writer io.Writer) error {
 	return nil
 }
 
+func (p *CoapPacket) ResponseCode(code uint8) *CoapPacket {
+	return NewCoapPacket(code, []byte{})
+}
+
+func (p *CoapPacket) Response(code uint8, contentFormat int16, payload []byte) *CoapPacket {
+	resp := NewCoapPacket(code, payload)
+	resp.ContentFormat = contentFormat
+
+	return resp
+}
+
+func (p *CoapPacket) ResponseText(code uint8, payload string) *CoapPacket {
+	resp := NewCoapPacket(code, []byte(payload))
+	resp.ContentFormat = 0
+
+	return resp
+}
+
 func (p *CoapPacket) String() string {
 	coapTxt := strings.Builder{}
 	coapTxt.WriteString("[")
 	coapTxt.WriteString(p.StringCode())
-	if len(p.Token) > 0 {
-		coapTxt.WriteString(fmt.Sprintf(", token:%x", p.Token))
+	if len(p.token) > 0 {
+		coapTxt.WriteString(fmt.Sprintf(", token:%x", p.token))
 	}
 	if p.UriPath != "" {
 		coapTxt.WriteString(", uri:")
@@ -325,7 +343,7 @@ func (p *CoapPacket) writeOptions() []byte {
 
 	//#2
 	if p.CSM != nil {
-		p.writeOptionHeaderDynamicSize(optWriter, delta(&lastOptNum, 2), writeUint32(p.CSM.MaxMessageSize))
+		p.writeOptionHeader(optWriter, delta(&lastOptNum, 2), writeDynamicUint32(p.CSM.MaxMessageSize))
 	}
 
 	//#4
@@ -351,7 +369,7 @@ func (p *CoapPacket) writeOptions() []byte {
 
 	//#14 max-age
 	if p.MaxAge != 60 {
-		p.writeOptionHeaderDynamicSize(optWriter, delta(&lastOptNum, 14), writeUint32(p.MaxAge))
+		p.writeOptionHeader(optWriter, delta(&lastOptNum, 14), writeDynamicUint32(p.MaxAge))
 	}
 
 	return optWriter.Bytes()
@@ -404,6 +422,11 @@ func readUint32(data []byte) uint32 {
 	}
 }
 
-func writeUint32(data uint32) []byte {
-	return []byte{byte(data >> 24), byte(data >> 16), byte(data >> 8), byte(data)}
+func writeDynamicUint32(data uint32) []byte {
+	minData := []byte{byte(data >> 24), byte(data >> 16), byte(data >> 8), byte(data)}
+
+	for minData[0] == 0 && len(minData) > 1 {
+		minData = minData[1:]
+	}
+	return minData
 }

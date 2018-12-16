@@ -95,7 +95,7 @@ func (f HandlerGetFunc) Serve(peerIP net.Addr, req *CoapPacket) *CoapPacket {
 	if req.Code == GET {
 		return f(req)
 	}
-	return NewCoapPacket(CODE_405_METHOD_NOT_ALLOWED, req.Token, []byte{})
+	return req.ResponseCode(CODE_405_METHOD_NOT_ALLOWED)
 }
 
 func (server *CoapServer) handleConnection(c net.Conn) {
@@ -105,7 +105,7 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 	//clientCapabilities := Capabilities{1152, false}
 
 	//send server capabilities
-	coapCSM := NewCoapPacket(CODE_701_CSM, []byte{}, []byte{})
+	coapCSM := NewCoapPacket(CODE_701_CSM, []byte{})
 	coapCSM.CSM = server.csm
 
 	err := coapCSM.Write(c)
@@ -153,7 +153,7 @@ func (server *CoapServer) handleConnection(c net.Conn) {
 func (server *CoapServer) serveRequest(addr net.Addr, req *CoapPacket) (*CoapPacket, error) {
 	//ping
 	if req.Code == CODE_702_PING {
-		return NewCoapPacket(CODE_703_PONG, req.Token, []byte{}), nil
+		return req.ResponseCode(CODE_703_PONG), nil
 	}
 
 	//request
@@ -164,7 +164,7 @@ func (server *CoapServer) serveRequest(addr net.Addr, req *CoapPacket) (*CoapPac
 		if exists {
 			resp = handler.Serve(addr, req)
 		} else {
-			resp = NewCoapPacket(CODE_404_NOT_FOUND, req.Token, []byte{})
+			resp = req.ResponseCode(CODE_404_NOT_FOUND)
 		}
 
 		return resp, nil
