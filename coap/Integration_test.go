@@ -11,15 +11,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package coap
+package coap_test
 
 import (
+	"github.com/szymex/go-coap-tcp/coap"
 	"testing"
 )
 
 func Test_ping_pong(t *testing.T) {
 
-	server := NewCoapServer()
+	server := coap.NewCoapServer()
 	start(&server, ":5683")
 
 	client := connectClient(t, "127.0.0.1:5683")
@@ -35,7 +36,7 @@ func Test_ping_pong(t *testing.T) {
 
 func Test_request_not_found(t *testing.T) {
 
-	server := NewCoapServer()
+	server := coap.NewCoapServer()
 	start(&server, ":15683")
 
 	client := connectClient(t, "127.0.0.1:15683")
@@ -45,8 +46,8 @@ func Test_request_not_found(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.Code != CODE_404_NOT_FOUND {
-		t.Fatalf("\nExpected: %#v \n  Actual: %#v", CODE_404_NOT_FOUND, resp)
+	if resp.Code != coap.CODE_404_NOT_FOUND {
+		t.Fatalf("\nExpected: %#v \n  Actual: %#v", coap.CODE_404_NOT_FOUND, resp)
 	}
 
 	client.Close()
@@ -55,9 +56,9 @@ func Test_request_not_found(t *testing.T) {
 
 func Test_request(t *testing.T) {
 
-	server := NewCoapServer()
-	server.HandleFunc("/test", func(req *CoapPacket) *CoapPacket {
-		return req.Response(CODE_205_CONTENT, -1, []byte("test test"))
+	server := coap.NewCoapServer()
+	server.HandleFunc("/test", func(req *coap.CoapPacket) *coap.CoapPacket {
+		return req.Response(coap.CODE_205_CONTENT, -1, []byte("test test"))
 	})
 
 	start(&server, ":25683")
@@ -69,7 +70,7 @@ func Test_request(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.Code != CODE_205_CONTENT {
+	if resp.Code != coap.CODE_205_CONTENT {
 		t.Fatalf("\nExpected: 2.05\n  Actual: %v", resp.StringCode())
 	}
 
@@ -79,16 +80,16 @@ func Test_request(t *testing.T) {
 
 func Test_getHandlerShouldReturn405OnPost(t *testing.T) {
 
-	server := NewCoapServer()
-	server.HandleGet("/test", func(req *CoapPacket) *CoapPacket {
-		return req.Response(CODE_205_CONTENT, -1, []byte("test test"))
+	server := coap.NewCoapServer()
+	server.HandleGet("/test", func(req *coap.CoapPacket) *coap.CoapPacket {
+		return req.Response(coap.CODE_205_CONTENT, -1, []byte("test test"))
 	})
 
 	start(&server, ":5683")
 	client := connectClient(t, "127.0.0.1:5683")
 
 	resp, _ := client.Post("/test", "")
-	if resp.Code != CODE_405_METHOD_NOT_ALLOWED {
+	if resp.Code != coap.CODE_405_METHOD_NOT_ALLOWED {
 		t.Fatalf("\nExpected: 4.05\n  Actual: %v", resp.StringCode())
 	}
 
@@ -96,14 +97,14 @@ func Test_getHandlerShouldReturn405OnPost(t *testing.T) {
 	server.Stop()
 }
 
-func start(server *CoapServer, address string) {
+func start(server *coap.CoapServer, address string) {
 	ch := make(chan bool)
 	go server.Start(address, ch)
 	<-ch
 }
 
-func connectClient(t *testing.T, address string) *CoapClient {
-	client, err := Connect(address)
+func connectClient(t *testing.T, address string) *coap.CoapClient {
+	client, err := coap.Connect(address)
 	if err != nil {
 		t.Fatal(err)
 	}
